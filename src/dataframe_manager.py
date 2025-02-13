@@ -1,3 +1,27 @@
+import requests
+import pandas as pd
+import json
+import logging
+from datetime import datetime
+import os
+from tqdm import tqdm
+import pandas as pd
+from pytz import timezone
+import matplotlib.dates as mdates
+import warnings
+import numpy as np
+import yfinance
+import requests
+aest = timezone('Australia/Sydney')
+import traceback
+import time
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from matplotlib.colors import to_rgb
+
+
+
 class shares_analysis:
     
     '''
@@ -121,10 +145,11 @@ class shares_analysis:
                                 nrows=(2 if plot_rsi else 1),
                                 sharex=True,
                                 gridspec_kw={'height_ratios': [2, 1] if plot_rsi else [1]})
+        
         if not isinstance(ax1, np.ndarray):
             ax1 = [ax1]  
         for code in codes:
-            temp_df = curr_shares_df.day_df[curr_shares_df.day_df['code'] == code]
+            temp_df = self.day_df[self.day_df['code'] == code]
 
             # Set up the plot
             

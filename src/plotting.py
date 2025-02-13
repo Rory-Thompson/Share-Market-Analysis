@@ -1,3 +1,28 @@
+import requests
+import pandas as pd
+import json
+import logging
+from datetime import datetime
+import os
+from tqdm import tqdm
+import pandas as pd
+from pytz import timezone
+import matplotlib.dates as mdates
+import warnings
+import numpy as np
+import yfinance
+import requests
+aest = timezone('Australia/Sydney')
+import traceback
+import time
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from matplotlib.colors import to_rgb
+
+
+
+
 class SharesPlotter:
     def __init__(self, shares_analysis_instance):
         """Initialize with an instance of the shares_analysis class."""
@@ -18,12 +43,7 @@ class SharesPlotter:
         df = self.shares_analysis.share_metric_df.copy()
 
         # Ensure metrics exist
-        if metric_x not in df.columns or metric_y not in df.columns or size_metric not in df.columns:
-            raise ValueError(f"One or more selected metrics are missing from the dataset: {metric_x}, {metric_y}, {size_metric}")
-
-        # Get the sector of the selected stock
-        if code not in df.index:
-            raise ValueError(f"Code {code} not found in dataset.")
+        
 
         sector = df.loc[code, "sector"]
         sector_df = df[df["sector"] == sector].dropna(subset=[metric_x, metric_y, size_metric])
@@ -59,6 +79,14 @@ class SharesPlotter:
         
         sector_df = sector_df[(sector_df[metric_x] <= upper_bound_metric_x)&(sector_df[metric_y] <= upper_bound_metric_y)]
         
+        if metric_x not in df.columns or metric_y not in df.columns or size_metric not in df.columns:
+            raise ValueError(f"One or more selected metrics are missing from the dataset: {metric_x}, {metric_y}, {size_metric}")
+
+        # Get the sector of the selected stock
+        if code not in df.index:
+            raise ValueError(f"Code {code} not found in dataset.")
+
+
         top_stocks = list(sector_df.nlargest(3, size_metric).index)#for legend.
         print(top_stocks)
         if code not in top_stocks:

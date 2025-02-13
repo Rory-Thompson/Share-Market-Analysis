@@ -1,10 +1,10 @@
 
 
 import argparse
-from src.dataframe_manager import shares_analysis
-from src.plotting import Plotting
-from src.model_output import ModelOutput
-from src.config import aest  # Import the global timezone variable
+from dataframe_manager import shares_analysis
+from plotting import SharesPlotter
+from model import TradingModel
+from config import aest  # Import the global timezone variable
 
 
 import requests
@@ -93,13 +93,24 @@ def main():
     ]
 
     trading_model = TradingModel(name = "This is the coolest model", shares_analysis = df_manager, config = model_config)
-    res = trading_model.share_test_values_get(df_series = curr_shares_df.model_res_df)
+    res = trading_model.share_test_values_get(df_series = df_manager.model_res_df)
     print("Recommended Shares to Purchase:")
-    print(res)
-    SharesPlotter_1 = SharesPlotter(shares_analysis_instance = curr_shares_df)
+    res_buy = res[res]
+    print(res_buy)
+    SharesPlotter_1 = SharesPlotter(shares_analysis_instance = df_manager)
+    if len(res_buy)==0:
+        print("no shares to buy ya donkey")
+    else:
 
-    SharesPlotter_1.plot_metric_comparison(code= list(res.index)[0], metric_x= "trailingPE", metric_y='trailingEps')
-    df_manager.plot_averages(codes=[list(res.index)[0]], averages= [30,10],plot_rsi= True)
+        try:
+
+            SharesPlotter_1.plot_metric_comparison(code= list(res_buy.index)[0], metric_x= "trailingPE", metric_y='trailingEps')
+        except ValueError as e:
+            print(f"code for {list(res_buy.index)[0]} failed, potentially try different metrics, full error: {e}")
+
+            temp = df_manager.share_metric_df.loc[code]
+            print(f"different metrics that are available for next run time: {temp[temp.isna()]}")
+        df_manager.plot_averages(codes=[list(res_buy.index)[0]], averages= [30,10],plot_rsi= True)#this plot should always work. 
 
 if __name__ == "__main__":
     main()
