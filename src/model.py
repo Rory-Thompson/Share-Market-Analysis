@@ -79,7 +79,6 @@ class TradingModel:
                 self.shares_analysis.calc_rsi(self, window = model_val[window], min_periods = model_val[min_periods])
                 
                 
-                
     def share_test_values_get(self,df_series):
         
         

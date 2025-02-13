@@ -110,7 +110,7 @@ def main():
 
             temp = df_manager.share_metric_df.loc[code]
             print(f"different metrics that are available for next run time: {temp[temp.isna()]}")
-        df_manager.plot_averages(codes=[list(res_buy.index)[0]], averages= [30,10],plot_rsi= True)#this plot should always work. 
+        SharesPlotter_1.plot_averages(codes=[list(res_buy.index)[0]], averages= [30,10],plot_rsi= True)#this plot should always work. 
 
 if __name__ == "__main__":
     main()
