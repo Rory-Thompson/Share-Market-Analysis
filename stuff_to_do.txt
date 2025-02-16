@@ -1,0 +1,10 @@
+1) creating testing suite
+
+2) update function to be deployable on any machine (no longer use disk station and instead use the yfinance endpoint)
+
+3) make a quicker version that can be used (download a cached version of day df instead of generating the whole thing.
+
+4) make plotting easier to access without having to generate complex df ( maybe if no instantiation of data )
+
+5) create a dashboard for the stocks that are generated using the plotting module. 
+

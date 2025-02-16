@@ -1,0 +1,55 @@
+Useful notes for development.
+
+Commands used for git. 
+
+getting git working using git desktop:
+find git location.
+C:\Users\rory\AppData\Local\GitHubDesktop\app-3.4.16\resources\app\git\cmd
+
+
+Press Win + R, type sysdm.cpl, and hit Enter.
+Go to the Advanced tab → Click Environment Variables.
+Under System Variables, click New.
+Variable Name: GIT_PATH
+Variable Value: set to the git location found above.
+
+Now, edit the Path variable:
+Find Path in System Variables and click Edit.
+Click New and add:
+perl
+Copy
+Edit
+%GIT_PATH%
+
+USE THE FOLLOWING COMMAND AFTER AND THEN CLOSE AND CREATE A NEW TERMINAL
+conda init cmd.exe
+
+PUSHING:
+
+git add .#adds all the changes
+git commit -m "Your commit message"#commits to local repository.
+
+git push --force origin main #pushes and updates anything
+git push origin main #will soft push everyhting.
+
+git add README.md environments.yml requirements.txt run_analysis.bat#will only add the selected files to the add.
+When i had issues with text names, ren README.md.txt README.md
+
+
+GOING BACKWARDS: cd ..
+
+
+Getting requirements.txt from an environment, pip freeze > requirements.txt
+
+
+
+SETING UP VS CODE
+
+how to select interpreter.
+Open the Command Palette (Ctrl+Shift+P or F1).
+Type Python: Select Interpreter.
+From the list, choose the Python interpreter from your tf environment.
+
+
+create python repl
+just type python and anything subsequent will be a repl.
