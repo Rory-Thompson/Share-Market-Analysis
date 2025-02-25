@@ -9,4 +9,3 @@ yfinance
 dash
 plotly
 seaborn
-importlib
