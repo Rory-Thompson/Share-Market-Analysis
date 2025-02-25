@@ -17,6 +17,7 @@ import traceback
 import time
 import seaborn as sns
 import matplotlib.pyplot as plt
+import yfinance as yf
 
 from matplotlib.colors import to_rgb
 
@@ -31,21 +32,77 @@ class shares_analysis:
     
     '''
     
-    def __init__(self, shares_df,model_res_df_location=r'\\DiskStation\Data\trading\files\rory_model_results\res_model_df.csv'):
-        self.shares_df = shares_df
-        self.model_res_df = pd.read_csv(model_res_df_location,index_col = "Unnamed: 0")
+    def __init__(self, shares_df=None,get_cache_df = True,cache_df_location = None, json_raw_location = r'\\DiskStation\Data\trading\files\asx',
+                  model_res_df_location=r'\\DiskStation\Data\trading\files\rory_model_results\res_model_df.csv'):
         aest = timezone('Australia/Sydney')
+        
+        #in all cases we want to read the yfinance results. It is broken constantly. with api client errors of too many requests. 
+        self.share_metric_df= pd.read_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv",index_col = "code")
+        
+        if shares_df is None and get_cache_df:
+            raise Exception("You passed a shares dataframe and put get_cache_df to True, please set get_cache_df as false or do not pass a shares_df") 
+
+        if cache_df_location is not None:
+
+            self.cache_df_location = cache_df_location
+        else:
+            self.cache_df_location =  r'\\DiskStation\Data\trading\files\rory_model_results\cache_day_df.csv'
+            print(f"using location for cached df, {self.cache_df_location}")
+        self.json_raw_location = json_raw_location
+        if not get_cache_df:
+            
+            if shares_df is None:
+                #LOGIC IF DONT WANT TO GET CACHED DF
+                raise Exception("Please pass a dataframe into shares_df if get_cache_df is False")
+            self.shares_df = shares_df
+            
+            self.model_res_df = pd.DataFrame()
+            #
+            
+
+            
+        else:
+            #LOGIC IF WE DO WANT TO GET CACHED DF
+           
+
+            try:
+                self.shares_df= pd.read_csv(cache_df_location)
+                self.model_res_df = pd.read_csv(model_res_df_location,index_col = "Unnamed: 0")
+            except Exception as e:
+                print(f"error reading cached df: {e}")
+                print("trying to create df from scratch")
+                files = os.listdir(self.json_raw_location)
+                
+                df_data = pd.DataFrame()
+                
+
+                for uri_val in tqdm(files):
+                    print(f"init function shares_analysis running, creating day_to_df from scratch")
+                    df_temp = self.get_data_to_df(uri_val,location = self.json_raw_location)
+                    df_data = pd.concat([df_data,df_temp])
+                self.shares_df = df_data
+            
+        self.all_codes = self.shares_df['code'].unique()
+        self.shares_df["updated_at"]= pd.to_datetime(self.shares_df["updated_at"])
+        
+
+            #the below lines are done if a cashed
+        
         self.shares_df['aest_time'] = self.shares_df['updated_at'].dt.tz_convert(aest)
         self.shares_df["aest_day"] = self.shares_df["aest_time"].dt.strftime('%d/%m/%Y')
         self.shares_df = self.shares_df.reset_index()
+        
+        
+        
         self.moving_average = {}
-        self.all_codes = shares_df['code'].unique()
+        self.gen_share_lst()#Note this does not update anything if using cache df. although it probably should.
         self.models = {}
         self.averages_calculated = []
         self.create_day_df()
+        #self.save_day_df_cache()
         self.update_price_model_res_df()
         self.completed_tickers = []
-        self.share_metric_df= pd.read_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv",index_col = "code")
+        
         #be
 #     def update_column_series(model_res_df = True, day_df = True, df_to_update):
 #method potentially not required. 
@@ -55,6 +112,30 @@ class shares_analysis:
 #                 if col not in self.model_res_df.columns:
 #                     df_to_update
 
+    
+    def save_day_df_cache(self):
+        self.day_df.to_csv(self.cache_df_location, index = False)
+        
+    
+    def get_data_to_df(self,uri,location):
+        """
+        method to extract a single json file. These are the json files stored on the diskstation. 
+        """
+        
+        df_data = pd.DataFrame()
+        temp = pd.read_json(f'{location}\{uri}')
+        df_data = pd.concat([temp,df_data], join = "outer")
+        lst = []
+        def lambda_func(a):
+            if a['company_sector'] != None:
+                #print(a['company_sector']['gics_sector'])
+                ind = a.index
+                lst.append(a['company_sector']['gics_sector'].replace(' ','_'))
+            else:
+                lst.append("No_industry")
+        df_data.apply(lambda_func, axis = 1)
+        df_data['sector']= lst
+        return df_data
     
 
     def update_price_model_res_df(self):
@@ -67,7 +148,7 @@ class shares_analysis:
         idx = self.day_df.groupby('code')['aest_day_datetime'].idxmax()
         temp_df = self.day_df.loc[idx]
         #we now have the latest for day for each code in the day df. 
-        # get code
+        # needs to handle if empty, currently doesnt. 
         temp_df = temp_df.set_index('code')
         self.model_res_df['last'] = temp_df['last']
         
@@ -115,20 +196,22 @@ class shares_analysis:
         title = f'rolling average {num_days}'
         self.averages_calculated.append(num_days)
         self.day_df[title] = self.day_df.groupby('code')['last'].transform(lambda x: x.rolling(window=num_days, min_periods = min_periods).mean())
-
+        print("shares analysis, calc moving average done: "+title)
             
     def gen_share_lst(self,extra_metrics = [],codes_to_update =[]):
-        
+        """
+        What does this do? 
+        talks to the yfinance api. It will search for all codes in the metric
+        """
         base_metrics = ["longName","industry","sector","marketCap","trailingPE",'forwardPE','trailingEps','forwardEps','returnOnAssets','earningsGrowth','revenueGrowth','totalRevenue',
          'returnOnAssets','returnOnEquity','profitMargins','dividendYield']
         metrics = list(set(extra_metrics) | set(base_metrics))
         
-        codes = self.model_res_df.index.unique().to_list()
-        
-        
-        
         self.df_lst = []
-        tickers = list(set(codes) - set(list(self.share_metric_df.index)))
+        #here we take all codes in day_df, then - codes already in the share metric df, and these codes as well as any new share codes passed into the function.
+        list(self.share_metric_df.index)
+        tickers = list(set(list(self.all_codes)) - set(list(self.share_metric_df.index)))
+
         tickers = list(set(tickers) | set(codes_to_update))
         print()
         print(len(tickers))
@@ -141,7 +224,7 @@ class shares_analysis:
             success = False
             retries = 0
             
-            while not success and retries < 5:
+            while not success and retries < 1:
                 try:
                     ticker = yf.Ticker(ticker_name)
                     try:
@@ -184,13 +267,18 @@ class shares_analysis:
     
     def gen_share_df(self):
         
-        res = pd.DataFrame(self.df_lst)
-        res.set_index("code")
-        #now self.df_lst is updated completelty, but share metric df must not be, it should only be updated,
-        #test this out, will obviously take some time
-        self.share_metric_df.update(res)
-        
-        self.share_metric_df.to_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv")
+        if len(self.df_lst)>0:
+            res = pd.DataFrame(self.df_lst)
+
+            res.set_index("code")
+            #now self.df_lst is updated completelty, but share metric df must not be, it should only be updated,
+            #test this out, will obviously take some time
+            self.share_metric_df.update(res)
+            
+            #we assume that because the yfinance_results are loaded upon the initiation of shares_analysis.
+            #it is the FULL dataset. Hence we can then update it, which should only updates changes and not delete data.
+
+            self.share_metric_df.to_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv")
             
                     
                     
@@ -409,7 +497,6 @@ class shares_analysis:
             returns a floating point value for every row.
             
             '''
-    
             if calc_type == "avg_loss":
 
                 is_loss = rolling_window<0

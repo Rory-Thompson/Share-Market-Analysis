@@ -26,7 +26,9 @@ import traceback
 import time
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+from Dashboard_testing.Dashboard import Dashboard_creator
+from plotting import SharesPlotter
+from dataframe_manager import shares_analysis
 from matplotlib.colors import to_rgb
 
 def main():
@@ -63,7 +65,7 @@ def main():
         
     
 
-    df_manager = shares_analysis(df_data)
+    df_manager = shares_analysis(df_data, get_cache_df = False)
     
     df_manager.calc_moving_average(num_days=50, min_periods = 30)
     df_manager.create_smoothing_function_model(day_long = 21,day_small = 9)
@@ -97,20 +99,22 @@ def main():
     print("Recommended Shares to Purchase:")
     res_buy = res[res]
     print(res_buy)
-    SharesPlotter_1 = SharesPlotter(shares_analysis_instance = df_manager)
+    SharesPlotter_1 = SharesPlotter(shares_analysis_instance = df_manager,plot_website = True)
     if len(res_buy)==0:
         print("no shares to buy ya donkey")
     else:
+        print(f"codes passed into Dashboard_creator, {list(res_buy.index)}")
+        app = Dashboard_creator(codes = list(res_buy.index),Plotter = SharesPlotter_1)
+        app.run()
+        # try:
 
-        try:
+        #     SharesPlotter_1.plot_metric_comparison(code= list(res_buy.index)[0], metric_x= "trailingPE", metric_y='trailingEps')
+        # except ValueError as e:
+        #     print(f"code for {list(res_buy.index)[0]} failed, potentially try different metrics, full error: {e}")
 
-            SharesPlotter_1.plot_metric_comparison(code= list(res_buy.index)[0], metric_x= "trailingPE", metric_y='trailingEps')
-        except ValueError as e:
-            print(f"code for {list(res_buy.index)[0]} failed, potentially try different metrics, full error: {e}")
-
-            temp = df_manager.share_metric_df.loc[code]
-            print(f"different metrics that are available for next run time: {temp[temp.isna()]}")
-        SharesPlotter_1.plot_averages(codes=[list(res_buy.index)[0]], averages= [30,10],plot_rsi= True)#this plot should always work. 
+        #     #temp = df_manager.share_metric_df.loc[code]
+        #     #print(f"different metrics that are available for next run time: {temp[temp.isna()]}")
+        # SharesPlotter_1.plot_averages(codes=[list(res_buy.index)[0]], averages= [30,10],plot_rsi= True)#this plot should always work. 
 
 if __name__ == "__main__":
     main()

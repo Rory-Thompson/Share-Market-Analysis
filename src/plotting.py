@@ -17,6 +17,8 @@ import traceback
 import time
 import seaborn as sns
 import matplotlib.pyplot as plt
+import io
+import base64
 
 from matplotlib.colors import to_rgb
 
@@ -24,19 +26,30 @@ from matplotlib.colors import to_rgb
 
 
 class SharesPlotter:
-    def __init__(self, shares_analysis_instance):
+    def __init__(self, shares_analysis_instance,plot_website =False):
         """Initialize with an instance of the shares_analysis class."""
         self.shares_analysis = shares_analysis_instance
+        self.plot_website = plot_website
     
     @property
     def day_df(self):
         return self.shares_analysis.day_df
+    
+    @property
+    def share_metric_df(self):
+        return self.shares_analysis.share_metric_df
 
     def plot_rsi(self, codes, window=14, min_periods = 13,ax=None):
         """
         Helper method to plot RSI for the given ASX codes.
         Plots the RSI with overbought (70) and oversold (30) lines.
         """
+        rsi_column = f'RSI_window_{window}_periods_{min_periods}'
+        if rsi_column not in list(self.day_df.columns):
+            print("print calculate_rsi_required_from_plotting_module: "+rsi_column)
+            self.shares_analysis.calc_rsi(window = window,min_periods = min_periods)
+
+        plt.style.use("dark_background")  # Enable dark mode
         if ax is None:
             fig, ax = plt.subplots(figsize=(14, 4))
 
@@ -46,10 +59,7 @@ class SharesPlotter:
             # RSI column name
             #RSI_window_14_periods_13
             #rsi_column = f'RSI_window_{window}_periods_{window}'
-            rsi_column = f'RSI_window_{window}_periods_{min_periods}'
-            if rsi_column not in list(self.day_df.columns):
-                print("print calculate_rsi_required_from_plotting_module")
-                self.shares_analysis.calc_rsi(window = window,min_periods = min_periods)
+            
             # Plot RSI
             ax.plot(temp_df["aest_day_datetime"].dt.tz_localize(None), temp_df[rsi_column], label=f'RSI for {code}', linewidth=2)
 
@@ -60,7 +70,7 @@ class SharesPlotter:
 
         # Format the x-axis for the RSI plot
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))  # Show dates in YYYY-MM-DD format
-        ax.xaxis.set_major_locator(mdates.MonthLocator())  # Show ticks for each month
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())  # Show ticks for each month
         ax.tick_params(axis='x', rotation=45)  # Rotate date labels for better readability
 
         # Add gridlines, title, labels, and legend to the RSI plot
@@ -75,7 +85,7 @@ class SharesPlotter:
             plt.tight_layout()
             plt.show()
             
-    def plot_averages(self,codes, averages= [50], plot_rsi=False):
+    def plot_averages(self,codes, averages= [50], plot_rsi=False,min_periods = None, window = None):
         
         
         """
@@ -88,15 +98,22 @@ class SharesPlotter:
         works best with only 1 code and multiple averages. 
         
         """
-
+        plt.style.use("dark_background")  # Enable dark mode
+        #print(f"checking averages: {pd.Series(list(self.day_df.columns)).str[-len(str(average)):].values}")#IDK WAT I WAS THINKIN WITH THIS LOGIC.
+        print(f"{averages} averages to be plotting in SharesPlotter")
+        print(f"{codes}, codes to be plotting in SharesPlotter")
         for average in averages:
             #print(pd.Series(list(self.day_df.columns)))
-            
-            if str(average) not in pd.Series(list(self.day_df.columns)).str[-len(str(average)):].values:
+            title = f'rolling average {average}'
+            if title not in list(self.day_df.columns):
+
                 #the average has not been calculated yet
                 print(f'calculating missing average {average}')
-                self.shares_analysis.averages_calculated.append(average)
                 self.shares_analysis.calc_moving_average(num_days = average, min_periods = int(average//1.4))
+                self.shares_analysis.averages_calculated.append(average)
+
+                #note arandom min pperiods is used with some basic logic
+                
                 
         # Filter the data for 'BHP'
         fig, ax1 = plt.subplots(figsize=(18, 12),
@@ -115,17 +132,17 @@ class SharesPlotter:
             ax1[0].plot(temp_df["aest_day_datetime"].dt.tz_localize(None), temp_df["last"], label=f'Last Price for {code}', linewidth=2, marker='o')
 
         # Plot the rolling average
-            for avg_col in averages:
+            for average in averages:
             
-                title = f'rolling average {avg_col}'
-            
+                title = f'rolling average {average}'
+                
                 ax1[0].plot(temp_df["aest_day_datetime"].dt.tz_localize(None), temp_df[title], label=f'{code} {title}', linewidth=2)
         
         # Format the x-axis to show dates nicely
         ax1[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        ax1[0].xaxis.set_major_locator(mdates.MonthLocator())
+        ax1[0].xaxis.set_major_locator(mdates.AutoDateLocator())
 
-        # Titles and labels
+        # Titles and labelspl
         ax1[0].set_title('Stock Price & Moving Averages', fontsize=16, fontweight='bold')
         ax1[0].set_ylabel('Price', fontsize=12)#for better readability
 
@@ -135,7 +152,7 @@ class SharesPlotter:
 
         # Add a legend
         if plot_rsi:
-            self.plot_rsi(codes, ax=ax1[1])
+            self.plot_rsi(codes, ax=ax1[1],min_periods = min_periods, window = window)
 
         # Add a vertical line for the current date (optional)
         #         current_date = pd.Timestamp.now().date()
@@ -144,51 +161,21 @@ class SharesPlotter:
 
         #         # Display the plot
         plt.tight_layout()  # Adjust layout to prevent overlap
+        if self.plot_website:
+            img_buffer = io.BytesIO()
+            fig.savefig(img_buffer, format="png")  # Save to buffer
+            img_buffer.seek(0)
+            
+            # Encode to base64 so it can be displayed in Dash
+            encoded_image = base64.b64encode(img_buffer.getvalue()).decode("utf-8")
+            plt.close(fig)  # Free memory
+            return f"data:image/png;base64,{encoded_image}"
+        
         plt.show()
         
        
     
-    def plot_rsi(self, codes, window=14, min_periods = 13,ax=None):
-        """
-        Helper method to plot RSI for the given ASX codes.
-        Plots the RSI with overbought (70) and oversold (30) lines.
-        """
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(14, 4))
-
-        for code in codes:
-            temp_df = self.day_df[self.day_df['code'] == code]
-
-            # RSI column name
-            #RSI_window_14_periods_13
-            #rsi_column = f'RSI_window_{window}_periods_{window}'
-            rsi_column = f'RSI_window_{window}_periods_{min_periods}'
-
-            # Plot RSI
-            ax.plot(temp_df["aest_day_datetime"].dt.tz_localize(None), temp_df[rsi_column], label=f'RSI for {code}', linewidth=2)
-
-        # Add horizontal lines for overbought (70) and oversold (30) levels
-        ax.axhline(y=70, color='r', linestyle='--', label='Overbought (70)')
-        ax.axhline(y=30, color='g', linestyle='--', label='Oversold (30)')
-        ax.fill_between(temp_df["aest_day_datetime"].dt.tz_localize(None), 30, 70, color='blueviolet', alpha=0.15)
-
-        # Format the x-axis for the RSI plot
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))  # Show dates in YYYY-MM-DD format
-        ax.xaxis.set_major_locator(mdates.MonthLocator())  # Show ticks for each month
-        ax.tick_params(axis='x', rotation=45)  # Rotate date labels for better readability
-
-        # Add gridlines, title, labels, and legend to the RSI plot
-        ax.grid(True, linestyle='--', alpha=0.5)
-        ax.set_title('Relative Strength Index (RSI)', fontsize=16, fontweight='bold')
-        ax.set_xlabel('Date', fontsize=12)
-        ax.set_ylabel('RSI', fontsize=12)
-        ax.legend(fontsize=12)
-
-        # Display the plot
-        if ax is None:
-            plt.tight_layout()
-            plt.show()
-
+    
     def plot_metric_comparison(self, code, metric_x, metric_y, size_metric="marketCap"):
         """
         Plots a scatter plot comparing two selected metrics for all stocks in the same sector as the given stock.
@@ -215,9 +202,9 @@ class SharesPlotter:
         sector_df["size"] = np.interp(sector_df[size_metric], (sector_df[size_metric].min(), sector_df[size_metric].max()), (min_size, max_size))
 
         # Create scatter plot
-        plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=(12, 8))
         
-        threshold = 10
+        threshold = 5
         
         sector_df = sector_df[~sector_df[metric_x].isin([np.inf, -np.inf])]
         
@@ -325,6 +312,14 @@ class SharesPlotter:
         
         
         plt.grid(True, linestyle="--", alpha=0.5)
-        
+        if self.plot_website:
+            img_buffer = io.BytesIO()
+            fig.savefig(img_buffer, format="png")  # Save to buffer
+            img_buffer.seek(0)
+            
+            # Encode to base64 so it can be displayed in Dash
+            encoded_image = base64.b64encode(img_buffer.getvalue()).decode("utf-8")
+            plt.close(fig)  # Free memory
+            return f"data:image/png;base64,{encoded_image}" 
         # Show plot
         plt.show()

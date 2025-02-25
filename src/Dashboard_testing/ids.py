@@ -1,0 +1,6 @@
+SHARES_DROPDOWN = "nation-dropdown"
+SELECT_ALL_SHARES = "select-all-shares-button"
+LINEGRAPH = "line-graph"
+METRICS_SHARE_DROPDOWN = "metric-share-dropdown"
+METRIC_DROPDOWN = "metric-dropdown"
+METRICPLOT = "metric-plot"

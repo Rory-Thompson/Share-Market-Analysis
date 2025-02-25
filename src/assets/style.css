@@ -1,0 +1,103 @@
+/* Set dark background and light text */
+body {
+    background-color: #121212; /* Dark background */
+    color: #E0E0E0; /* Light text */
+    font-family: Arial, sans-serif;
+}
+
+/* Style dropdown container */
+.dropdown-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+/* Style dropdown itself */
+.dropdown-button {
+    width: 100%;
+    margin-top: 5px;
+    background-color: #333; /* Dark button */
+    color: white; /* Light text */
+    border: 1px solid #777; /* Subtle border */
+}
+
+/* Ensure text in Dash dropdown is white */
+.Select-value-label {
+    color: white !important;
+}
+
+/* Dark mode styling for Dash Dropdown */
+.Select-control {
+    background-color: #333 !important; /* Dark background */
+    color: white !important; /* Light text */
+    border: 1px solid #777 !important; /* Border */
+}
+
+.Select-menu-outer {
+    background-color: #222 !important; /* Dark background for dropdown options */
+    color: white !important; /* Light text */
+}
+
+.Select-option {
+    background-color: #222 !important;
+    color: white !important;
+}
+
+.Select-option:hover {
+    background-color: #444 !important; /* Slightly lighter on hover */
+}
+/* Tabs group spacing */
+.tabs-group {
+    padding-top: 20px;
+}
+
+/* General app container */
+.app-div {
+    padding: 10px;
+    background-color: #1E1E1E; /* Darker section */
+    border-radius: 10px;
+}
+
+/* Style data tables */
+.data-table-div {
+    margin: auto;
+    padding: 10px;
+    background-color: #222;
+    border-radius: 10px;
+}
+/* image styling */
+
+.dash-image {
+    width: 90%;          /*Adjust width (e.g., 80% of the parent div)*/
+    max-width: 900px;        /* Limit max width */
+    height: auto;       /* Keep aspect ratio */
+    border: 2px solid black; /* Add a black border */
+    border-radius: 10px;     /* Round corners */
+    padding: 10px;           /* Add padding around the image */
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3); /* Add a shadow */ 
+}
+/* Text styling */
+.budget-label, .budget-text, .budget-text-value, .budget-tooltip {
+    font-size: 20px;
+    color: #E0E0E0;
+}
+
+/* Progress bar */
+.budget-progress-bar {
+    height: 20px;
+    background-color: #444; /* Darker gray */
+}
+
+/* Checklist styles */
+.checklist {
+    text-align: center;
+    padding-top: 10px;
+    padding-bottom: 20px;
+}
+
+/* Adjust dropdown layout for mobile */
+@media(max-width: 800px) {
+    .dropdown-container {
+        grid-template-columns: 1fr;
+    }
+}
