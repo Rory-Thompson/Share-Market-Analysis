@@ -32,12 +32,15 @@ class shares_analysis:
     
     '''
     
-    def __init__(self, shares_df=None,get_cache_df = True,cache_df_location = None, json_raw_location = r'\\DiskStation\Data\trading\files\asx',
-                  model_res_df_location=r'\\DiskStation\Data\trading\files\rory_model_results\res_model_df.csv'):
+    def __init__(self, location_base,shares_df=None,get_cache_df = True,cache_df_location = None):
         aest = timezone('Australia/Sydney')
-        
+        json_raw_location = os.path.join(location_base, "asx")
+
+        model_res_df_location = os.path.join(location_base, "rory_model_results","res_model_df.csv")
         #in all cases we want to read the yfinance results. It is broken constantly. with api client errors of too many requests. 
-        self.share_metric_df= pd.read_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv",index_col = "code")
+        
+        self.yfinance_location = os.path.join(location_base, "rory_model_results","yfinance_results.csv") 
+        self.share_metric_df= pd.read_csv(self.yfinance_location,index_col = "code")
         
         if shares_df is None and get_cache_df:
             raise Exception("You passed a shares dataframe and put get_cache_df to True, please set get_cache_df as false or do not pass a shares_df") 
@@ -46,7 +49,7 @@ class shares_analysis:
 
             self.cache_df_location = cache_df_location
         else:
-            self.cache_df_location =  r'\\DiskStation\Data\trading\files\rory_model_results\cache_day_df.csv'
+            self.cache_df_location = os.path.join(location_base, "rory_model_results","cache_day_df.csv")
             print(f"using location for cached df, {self.cache_df_location}")
         self.json_raw_location = json_raw_location
         if not get_cache_df:
@@ -266,6 +269,11 @@ class shares_analysis:
         return res
     
     def gen_share_df(self):
+        '''
+        Auxillary method to update yfinance. It only updates data if it is new.
+        This does not happen for nas. if the value is na or nan in new df from df_lst it will not update existing numbers. 
+        This is called after gen_share_df is run .
+        '''
         
         if len(self.df_lst)>0:
             res = pd.DataFrame(self.df_lst)
@@ -278,7 +286,7 @@ class shares_analysis:
             #we assume that because the yfinance_results are loaded upon the initiation of shares_analysis.
             #it is the FULL dataset. Hence we can then update it, which should only updates changes and not delete data.
 
-            self.share_metric_df.to_csv(r"\\DiskStation\Data\trading\files\rory_model_results\yfinance_results.csv")
+            self.share_metric_df.to_csv(self.yfinance_location)
             
                     
                     

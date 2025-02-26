@@ -30,18 +30,21 @@ from Dashboard_testing.Dashboard import Dashboard_creator
 from plotting import SharesPlotter
 from dataframe_manager import shares_analysis
 from matplotlib.colors import to_rgb
+location_base = os.getenv("LOCATION", r"\\DiskStation\Data\trading\files")
+
 
 def main():
-	
-
-    location = r'\\DiskStation\Data\trading\files\asx'
-    location_model_res = r'\\DiskStation\Data\trading\files\rory_modal_results'
+    location = os.path.join(location_base, "asx")#does automatic join
+    location_model_res = os.path.join(location_base, "rory_model_results")#not used for now .
     files = os.listdir(location)
     df_data = pd.DataFrame()
     uri_1_json = files[0]
-    def get_data_to_df(uri):
+    full_paths = [os.path.join(location, file) for file in files]
+
+
+    def get_data_to_df(full_path):
         df_data = pd.DataFrame()
-        temp = pd.read_json(f'{location}\{uri}')
+        temp = pd.read_json(full_path)
         df_data = pd.concat([temp,df_data], join = "outer")
         lst = []
         def lambda_func(a):
@@ -58,14 +61,14 @@ def main():
     
 
 
-    for uri_val in tqdm(files):
+    for full_path in tqdm(full_paths):
     
-        df_temp = get_data_to_df(uri_val)
+        df_temp = get_data_to_df(full_path)
         df_data = pd.concat([df_data,df_temp])
         
     
 
-    df_manager = shares_analysis(df_data, get_cache_df = False)
+    df_manager = shares_analysis(shares_df = df_data,location_base = location_base, get_cache_df = False)
     
     df_manager.calc_moving_average(num_days=50, min_periods = 30)
     df_manager.create_smoothing_function_model(day_long = 21,day_small = 9)
