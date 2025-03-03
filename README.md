@@ -3,7 +3,7 @@
 **what does this project aim to achieve?**
 This project aims to automatically analyse all shares listed on the asx stock exchange and list a certain amount to buy for a given time. There are over 2500 shares it analyses, using at the moment fairly rudimentary techniques like RSI, rolling average cross, gradient averages. 
 
-![Dashboard Preview](https://raw.githubusercontent.com/Rory-Thompson/Share-Market-Analysis/main/assets/dashboard_example.png)
+![Dashboard Preview](https://raw.githubusercontent.com/Rory-Thompson/Share-Market-Analysis/main/assets/dashboard_example.PNG)
 
 This cannot be replicated on other networks as it uses local file locations in which all share data is stored. 
 
