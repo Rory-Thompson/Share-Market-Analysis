@@ -1,4 +1,3 @@
-import plotly.graph_objects as go
 from dash import dcc, html
 import importlib
 from dash import Dash
@@ -14,13 +13,13 @@ from Dashboard_testing.layout import create_layout
 
 class Dashboard_creator:
 
-    def __init__(self,codes,Plotter):
+    def __init__(self,codes,Plotter,trading_model):
         #self.SharesPlotter = SharesPlotter
         self.codes = codes
         self.app = Dash()
         self.app.title = "Shares Analyis"
         print(f"codes passed into layout from dashboard { self.codes}")
-        self.app.layout = create_layout(self.app,codes = self.codes,Plotter = Plotter)
+        self.app.layout = create_layout(self.app,codes = self.codes,Plotter = Plotter,trading_model = trading_model)
         #self.app.run()
         
     def run(self, host="0.0.0.0", port=8050, debug=True):

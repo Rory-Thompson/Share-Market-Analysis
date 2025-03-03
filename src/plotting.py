@@ -38,6 +38,9 @@ class SharesPlotter:
     @property
     def share_metric_df(self):
         return self.shares_analysis.share_metric_df
+    @property
+    def model_res_df(self):
+        return self.shares_analysis.model_res_df
 
     def plot_rsi(self, codes, window=14, min_periods = 13,ax=None):
         """
@@ -45,7 +48,7 @@ class SharesPlotter:
         Plots the RSI with overbought (70) and oversold (30) lines.
         """
         rsi_column = f'RSI_window_{window}_periods_{min_periods}'
-        if rsi_column not in list(self.day_df.columns):
+        if (rsi_column not in list(self.day_df.columns)) or self.shares_analysis.df_is_updated:
             print("print calculate_rsi_required_from_plotting_module: "+rsi_column)
             self.shares_analysis.calc_rsi(window = window,min_periods = min_periods)
 
@@ -105,10 +108,10 @@ class SharesPlotter:
         for average in averages:
             #print(pd.Series(list(self.day_df.columns)))
             title = f'rolling average {average}'
-            if title not in list(self.day_df.columns):
+            if (title not in list(self.model_res_df.columns)) or self.shares_analysis.df_is_updated:
 
                 #the average has not been calculated yet
-                print(f'calculating missing average {average}')
+                print(f'calculating missing average {average} updated variable: {self.shares_analysis.df_is_updated}')
                 self.shares_analysis.calc_moving_average(num_days = average, min_periods = int(average//1.4))
                 self.shares_analysis.averages_calculated.append(average)
 
@@ -309,8 +312,20 @@ class SharesPlotter:
         plt.xlabel(metric_x)
         plt.ylabel(metric_y)
         plt.title(f"{metric_x} vs {metric_y} for {sector} Stocks", fontsize=14, fontweight="bold")
-        
-        
+        highlight_x = sector_df.loc[code, metric_x]
+        highlight_y = sector_df.loc[code, metric_y]
+        x_range = max(sector_df[metric_x]) - min(sector_df[metric_x])
+        y_range = max(sector_df[metric_y]) - min(sector_df[metric_y])
+        text_offset_x = x_range * 0.05  # Move 5% of the x-range to the right
+        text_offset_y = y_range * 0.1   # Move 10% of the y-range up
+        plt.annotate(
+            f'selected_share: {code}',
+            xy=(highlight_x, highlight_y),
+            xytext=(highlight_x + text_offset_x, highlight_y + text_offset_y),
+            arrowprops=dict(facecolor='red', arrowstyle='->')
+        )
+
+
         plt.grid(True, linestyle="--", alpha=0.5)
         if self.plot_website:
             img_buffer = io.BytesIO()

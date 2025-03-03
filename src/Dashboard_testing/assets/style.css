@@ -101,3 +101,62 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+
+
+/* Outer table container */
+.dash-table-container {
+    max-width: 80%;
+    margin: auto;
+    padding: 20px;
+    background-color: #222;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Table styling */
+.dash-table {
+    background-color: #333;
+    color: #ddd;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+/* Header row */
+.dash-table th {
+    background-color: #444;
+    color: white;
+    font-weight: bold;
+    padding: 10px;
+    border-bottom: 2px solid #666;
+}
+
+/* Data cells */
+.dash-table td {
+    padding: 8px;
+    border: 1px solid #444;
+}
+
+/* Filter row */
+.dash-table .dash-filter {
+    background-color: #222;
+    color: #bbb;
+    border-bottom: 1px solid #555;
+}
+
+/* Hover effect */
+.dash-table td:hover {
+    background-color: #555;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dash-table-container {
+        max-width: 100%;
+        padding: 10px;
+    }
+    .dash-table td, .dash-table th {
+        font-size: 12px;
+        padding: 6px;
+    }
+}

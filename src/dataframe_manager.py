@@ -2,25 +2,17 @@ import requests
 import pandas as pd
 import json
 import logging
-from datetime import datetime
 import os
 from tqdm import tqdm
 import pandas as pd
 from pytz import timezone
-import matplotlib.dates as mdates
 import warnings
 import numpy as np
-import yfinance
 import requests
 aest = timezone('Australia/Sydney')
 import traceback
 import time
-import seaborn as sns
-import matplotlib.pyplot as plt
 import yfinance as yf
-
-from matplotlib.colors import to_rgb
-
 
 
 class shares_analysis:
@@ -29,20 +21,37 @@ class shares_analysis:
     Notes to improve. This class must update the self.shares_df and self.model_res_df, and constantly has complex logic 
     copied and pasted, some sort of auxilary method that updates a column with an input of a series. Would make it alot cleaner. \
     
+    Save memory, need to cache the entire dataset and see how it runs. 
+    issue is it will create self.shares_df from the cache_day_df location. Then a bunch of code is run to create the day df again.
+    This means we are doubling the amount of memory required. Instead if the get_cache_df is true and successfully loads, we pass it directly to day_df and dont have a 
+    self.shares_df.
     
     '''
     
-    def __init__(self, location_base,shares_df=None,get_cache_df = True,cache_df_location = None):
+    def __init__(self, location_base,shares_df=None,get_cache_df = True,cache_df_location = None,build_cache_df = False):
+        self.build_cache_df = build_cache_df
+        self.get_cache_df = get_cache_df#required for saving to cache df
+        self.day_df = None#initialization
+        self.shares_df = None#is None, not the best logic. will be set to parameter shares_df if shares_df is not none and get_cache_df is True
         aest = timezone('Australia/Sydney')
-        json_raw_location = os.path.join(location_base, "asx")
+        self.json_raw_location = os.path.join(location_base, "asx")
+        self.df_is_updated = True
+        self.model_res_df_location = os.path.join(location_base, "rory_model_results","res_model_df.csv")
+        self.day_df_cache_control_location = os.path.join(location_base, "rory_model_results","day_df_cache_control.json")
 
-        model_res_df_location = os.path.join(location_base, "rory_model_results","res_model_df.csv")
-        #in all cases we want to read the yfinance results. It is broken constantly. with api client errors of too many requests. 
+        not os.path.isfile(self.day_df_cache_control_location) and pd.DataFrame().to_json(self.day_df_cache_control_location)#instantiate if it doesnt exist.:
         
+        
+        
+        self.cached_files = list(pd.read_json(self.day_df_cache_control_location,typ = 'series'))
+        self.saved_files_this_run = []#will reset whenever we save stuff. 
+
+        #in all cases we want to read the yfinance results. It is broken constantly. with api client errors of too many requests. 
+        print("reading metrics yfinance results")
         self.yfinance_location = os.path.join(location_base, "rory_model_results","yfinance_results.csv") 
         self.share_metric_df= pd.read_csv(self.yfinance_location,index_col = "code")
-        
-        if shares_df is None and get_cache_df:
+        print("metric df yfinance has been read")
+        if self.shares_df is not None and get_cache_df:
             raise Exception("You passed a shares dataframe and put get_cache_df to True, please set get_cache_df as false or do not pass a shares_df") 
 
         if cache_df_location is not None:
@@ -51,16 +60,22 @@ class shares_analysis:
         else:
             self.cache_df_location = os.path.join(location_base, "rory_model_results","cache_day_df.csv")
             print(f"using location for cached df, {self.cache_df_location}")
-        self.json_raw_location = json_raw_location
+        
         if not get_cache_df:
             
-            if shares_df is None:
+            if shares_df is None and not build_cache_df:
                 #LOGIC IF DONT WANT TO GET CACHED DF
-                raise Exception("Please pass a dataframe into shares_df if get_cache_df is False")
-            self.shares_df = shares_df
+                raise Exception("Please pass a dataframe into shares_df if get_cache_df is False or set build_cache_df to True")
+            
+            self.shares_df = shares_df if shares_df is None else None
+            if build_cache_df:
+
+                self.get_all_raw_data()
             
             self.model_res_df = pd.DataFrame()
             #
+
+        
             
 
             
@@ -69,42 +84,67 @@ class shares_analysis:
            
 
             try:
-                self.shares_df= pd.read_csv(cache_df_location)
-                self.model_res_df = pd.read_csv(model_res_df_location,index_col = "Unnamed: 0")
+                print("reading cached day _df")
+                self.day_df= pd.read_csv(self.cache_df_location)#this will be day df. 
+                print("finished reading cached _df")
+                self.model_res_df = pd.read_csv(self.model_res_df_location,index_col = "Unnamed: 0")
+
             except Exception as e:
                 print(f"error reading cached df: {e}")
-                print("trying to create df from scratch")
-                files = os.listdir(self.json_raw_location)
-                
-                df_data = pd.DataFrame()
-                
+                print("trying to create df from scratch. This will take much time, cancel and fix code if cache df is wanted")
+                self.get_all_raw_data()
+        
+        #the only way for day_df to be not None is if cache_df was used and was successful.
+        #this is a requirement for the proceeding lines. 
+        print(f"{type(self.shares_df)} shares df type in initialization")
+        df_complete = self.shares_df if self.day_df is None else self.day_df
+       
+        
+        
+        self.all_codes = df_complete['code'].unique()
 
-                for uri_val in tqdm(files):
-                    print(f"init function shares_analysis running, creating day_to_df from scratch")
-                    df_temp = self.get_data_to_df(uri_val,location = self.json_raw_location)
-                    df_data = pd.concat([df_data,df_temp])
-                self.shares_df = df_data
-            
-        self.all_codes = self.shares_df['code'].unique()
-        self.shares_df["updated_at"]= pd.to_datetime(self.shares_df["updated_at"])
+
+        #the below logic requires inplace operations. df_complete is pointing to the same reference objects as either self.shares_df or self.day_df.
+        #if a copy is done it will no longer point to the same location, doubling memory usage.
+        df_complete["updated_at"]= pd.to_datetime(df_complete["updated_at"])
         
 
-            #the below lines are done if a cashed
+        #the below lines are done if a cashed
         
-        self.shares_df['aest_time'] = self.shares_df['updated_at'].dt.tz_convert(aest)
-        self.shares_df["aest_day"] = self.shares_df["aest_time"].dt.strftime('%d/%m/%Y')
-        self.shares_df = self.shares_df.reset_index()
+        df_complete['aest_time'] = df_complete['updated_at'].dt.tz_convert(aest)
+        df_complete["aest_day"] = df_complete["aest_time"].dt.strftime('%d/%m/%Y')
+        df_complete.reset_index(inplace=True,drop = True)#if this is not done via inplace it will create a copy. also need to drop useless index column
         
         
         
         self.moving_average = {}
-        self.gen_share_lst()#Note this does not update anything if using cache df. although it probably should.
+        #self.gen_share_lst()#Note this does not update anything if using cache df. although it probably should.
         self.models = {}
         self.averages_calculated = []
-        self.create_day_df()
-        #self.save_day_df_cache()
+        type(self.day_df)
+        self.day_df is None and self.create_day_df()#if self.day_df is None (implies it must be created from shares_df) Then it will do the function
+
+        self.columns_to_drop = ["path","is_asr", "star_stock","status", "deleted_at","type"]
+        self.day_df = self.day_df[list(set(list(self.day_df.columns)) - set(self.columns_to_drop))]
+
+        #assume the day df is created we will update the date time values and sort it just in case.
+        assert self.day_df["aest_day"].dtype == "object", f'Column is not of type string column is {self.day_df["aest_day"].dtype}'
+        print(f"first value in day df type: {type(self.day_df.iloc[0,:]['aest_day'])}")
+        self.day_df['aest_day_datetime'] = pd.to_datetime(self.day_df['aest_day'], format="%d/%m/%Y")
+        #self.save_day_df_cache()df
+
+        self.day_df.dropna(subset=['aest_day_datetime'], inplace=True)#there is not much point having data that has no day datetime, it causes issues down the line. 
         self.update_price_model_res_df()
+        self.df_is_updated = False
         self.completed_tickers = []
+
+
+
+
+
+        if build_cache_df:
+            self.save_day_df_cache()
+
         
         #be
 #     def update_column_series(model_res_df = True, day_df = True, df_to_update):
@@ -115,18 +155,86 @@ class shares_analysis:
 #                 if col not in self.model_res_df.columns:
 #                     df_to_update
 
-    
-    def save_day_df_cache(self):
-        self.day_df.to_csv(self.cache_df_location, index = False)
+    def update_cache(self):
+        files = os.listdir(self.json_raw_location)
         
-    
-    def get_data_to_df(self,uri,location):
-        """
-        method to extract a single json file. These are the json files stored on the diskstation. 
-        """
+        files_to_update = list(set(files) -set(self.cached_files))
         
+        #self.saved_files_this_run+files_to_update
         df_data = pd.DataFrame()
-        temp = pd.read_json(f'{location}\{uri}')
+        
+        print(f"Files to update length in update_cache method df_manager: {len(files_to_update)}")
+        if len(files_to_update)== 0:
+            "no updates required"
+            raise Exception("No updates required.")
+        
+        for file in tqdm(files_to_update):
+            if file in self.saved_files_this_run:
+                continue
+            print(f"init function shares_analysis running, updating file {file}")
+            df_temp = self.get_data_to_df(file)
+            df_data = pd.concat([df_data,df_temp])
+            
+        df_data = df_data[list(set(list(df_data.columns)) - set(self.columns_to_drop))]
+        #generate another day df .
+        df_data["updated_at"]= pd.to_datetime(df_data["updated_at"])
+
+        
+        
+
+        #the below lines are done if a cashed
+        
+        df_data['aest_time'] = df_data['updated_at'].dt.tz_convert(aest)
+        df_data["aest_day"] = df_data["aest_time"].dt.strftime('%d/%m/%Y')
+        df_data['aest_day_datetime'] = pd.to_datetime(df_data['aest_day'], format="%d/%m/%Y")
+        idx = df_data.groupby(["code","aest_day"])["aest_time"].idxmax()
+        temp_df = df_data.loc[idx]
+        temp_df = temp_df.sort_values("aest_time")
+        self.day_df = pd.concat([self.day_df, temp_df]).drop_duplicates(subset=['aest_time', 'code'], keep='first')
+        
+        self.df_is_updated = True
+        #full_dates = pd.date_range(start=temp_df["aest_time"].min(), end=temp_df["aest_time"].max(), freq='B')
+        
+
+        
+    def save_day_df_cache(self):
+        '''
+        saves the current day df into the location of the previous day_df cache. Should only be run when required
+        DO NOT RUN DURING TESTING
+        
+        '''
+        if not self.get_cache_df and not self.build_cache_df:
+            raise Exception("If not building from scratch or not using cache df do not use save_day_df_cache, can lead to data loss. ")
+
+        res = list(set(self.cached_files) | set(self.saved_files_this_run))
+
+        self.day_df.to_csv(self.cache_df_location, index = False)#for now we read it in. and save it. 
+        all_cached_files = res
+        pd.Series(all_cached_files).to_json(self.day_df_cache_control_location)
+        self.saved_files_this_run =[]
+        self.cached_files =res
+        
+    
+    def get_all_raw_data(self):
+        files = os.listdir(self.json_raw_location)
+        
+                
+        df_data = pd.DataFrame()
+        
+        print(f"init function shares_analysis running, creating day_to_df from scratch")
+        for file in tqdm(files):
+            
+            df_temp = self.get_data_to_df(file)
+            df_data = pd.concat([df_data,df_temp])
+            self.saved_files_this_run.append(file)
+        self.shares_df = df_data
+
+
+
+    def get_data_to_df(self,file):
+        full_path = os.path.join(self.json_raw_location, file)
+        df_data = pd.DataFrame()
+        temp = pd.read_json(full_path)
         df_data = pd.concat([temp,df_data], join = "outer")
         lst = []
         def lambda_func(a):
@@ -138,8 +246,8 @@ class shares_analysis:
                 lst.append("No_industry")
         df_data.apply(lambda_func, axis = 1)
         df_data['sector']= lst
+        self.saved_files_this_run.append(file)
         return df_data
-    
 
     def update_price_model_res_df(self):
         
@@ -153,7 +261,8 @@ class shares_analysis:
         #we now have the latest for day for each code in the day df. 
         # needs to handle if empty, currently doesnt. 
         temp_df = temp_df.set_index('code')
-        self.model_res_df['last'] = temp_df['last']
+        columns = ['title', 'change', 'ytd_percent_change', 'month_percent_change','week_percent_change', 'sector', 'updated_at','last','aest_day']
+        self.model_res_df[columns] = temp_df[columns]
         
         
         
@@ -174,7 +283,8 @@ class shares_analysis:
         merged_df = pd.merge(full_df, temp_df, on = ["aest_day", "code"], how="left")
         self.day_df = merged_df
         self.day_df['aest_day_datetime'] = pd.to_datetime(self.day_df['aest_day'], format="%d/%m/%Y")
-        return merged_df
+        
+        
         
         
     def calc_moving_average(self, num_days,min_periods,start_date =None, end_date= None, shares_codes=[]):
@@ -301,12 +411,12 @@ class shares_analysis:
         updated will technically have the wrong datetime, so you need to update every model at each time to make this 
         value accurate. or you have seperate date time values for each model which makes more sense in my opinion. 
         '''
-        if day_long not in self.averages_calculated:
+        
+        #whenever this is called we want to update the values. 
+        self.calc_moving_average(num_days = day_long, min_periods = int(day_long//1.4))
+        
             
-            self.calc_moving_average(num_days = day_long, min_periods = int(day_long//1.4))
-        if day_small not in self.averages_calculated:
-            
-            self.calc_moving_average(num_days = day_small, min_periods = int(day_small//1.4))
+        self.calc_moving_average(num_days = day_small, min_periods = int(day_small//1.4))
             
         #required averages have been calculated. 
         title_long = f'rolling average {day_long}'
@@ -328,97 +438,33 @@ class shares_analysis:
         self.day_df = self.day_df.sort_values(by=['code', 'aest_day_datetime']).reset_index(drop=True)
         self.day_df[f'{day_small}/{day_long}_buy_streak'] = self.day_df.ne(self.day_df.shift())[title].cumsum()
         
-        buy_streaks = self.day_df.groupby(['code', f'{day_small}/{day_long}_buy_streak']).size().reset_index(name=f'{day_small}/{day_long}_streak_length')
         
-        
-        if title not in list(self.model_res_df.columns):
-            #inversion:
-            #if the title exists in the model_df_columns it means it must exist in the day_df columns
-            #if the title does not exist in the model_df_columns, then it must not exist in the day_df columns,
-            #as day_df will update before the model df gets updated in the below logic.
-            
-            
-            print(f"column does not exist. {title}")
-            
-            self.day_df = pd.merge(
-                self.day_df, 
-                buy_streaks, 
-                how='left', 
-                on=['code', f'{day_small}/{day_long}_buy_streak']
-            )
-            idx = self.day_df.groupby('code')['aest_day_datetime'].idxmax()
-            temp_df = self.day_df.loc[idx]
-            #temp_df now contains the latest values for each share only, then can be merged
-            extra_cols = set(["aest_day","aest_day_datetime"])
-            extra_cols_to_update = list(set(list(self.model_res_df.columns)) & extra_cols)
-            
-            print(extra_cols_to_update)
-            print(list(extra_cols - set(extra_cols_to_update)))
-            if len(extra_cols_to_update)>0:
-                temp_df1= temp_df[["code"]+extra_cols_to_update]
-                temp_df1 = temp_df1.set_index(["code"])
-                self.day_df.update(temp_df1)
-                
-            #create the tuple maybe dont do this 
-            #temp_df[f'{day_small}/{day_long}_result']
-            temp_df = temp_df[["code",
+        streak_length = self.day_df.groupby(['code', f'{day_small}/{day_long}_buy_streak']).size()
+        multi_index = pd.MultiIndex.from_frame(self.day_df[['code', f'{day_small}/{day_long}_buy_streak']])#creates a multi index that can be used to map streak length back
+        #this dataframe now is buy streaks 
+        self.day_df[f'{day_small}/{day_long}_streak_length'] = multi_index.map(streak_length)
+
+        #below is the cleanest way to update model_res_df
+        extra_cols = set(["aest_day","aest_day_datetime"])
+        extra_cols_to_update = list(set(list(self.model_res_df.columns)) & extra_cols)
+        temp_df = self.day_df[["code",
                                f'{day_small}/{day_long}_model_buy_status',
-                               f'{day_small}/{day_long}_model_difference', 
-                               f'{day_small}/{day_long}_streak_length',
-                              f'{day_small}/{day_long}_model_%_difference']+
-                              list(extra_cols - set(extra_cols_to_update))]
-            
-            #now merge to the main df
-            self.model_res_df = pd.merge(left = self.model_res_df, right = temp_df,
-                     left_index= True, right_on = 'code', how = "outer").set_index("code")
-        else:
-            print(f"column exists, going down update pathway.  {title}")
-            #logic if the column already exists. 
-            #we want to somehow notify the user a change in status, honestly doesnt really matter though
-            #maybe just overwrite the column anyway. 
-            #perhaps see previous code to see how to do this, a merge will cause duplicate column.
-            
-            ##UPDATE TO IMPLEMENT, as long as index is the same it is allowed to use the df[col] = new_df[col]
-            
-            buy_streaks = buy_streaks.set_index(['code', f'{day_small}/{day_long}_buy_streak'])
-            self.day_df = self.day_df.set_index(['code', f'{day_small}/{day_long}_buy_streak'])
-            self.day_df.update(buy_streaks)
-            self.day_df = self.day_df.reset_index()
-            
-            #now we update the model res df
-            idx = self.day_df.groupby('code')['aest_day_datetime'].idxmax()
-            temp_df = self.day_df.loc[idx]
-            #temp_df now contains the latest values for each share only, then can be merged
-            #create the tuple maybe dont do this 
-            #temp_df[f'{day_small}/{day_long}_result']
-            
-            extra_cols = set(["aest_day","aest_day_datetime"])
-            extra_cols_to_update = list(set(list(self.model_res_df.columns)) & extra_cols)
-            
-            
-            if len(extra_cols_to_update)>0:
-                temp_df1= temp_df[["code"]+extra_cols_to_update]
-                temp_df1 = temp_df1.set_index(["code"])
-                self.day_df.update(temp_df1)
-            
-            temp_df = temp_df[["code",
-                               f'{day_small}/{day_long}_model_buy_status',
-                               f'{day_small}/{day_long}_model_difference', 
+                               f'{day_small}/{day_long}_model_difference',
+                               f'{day_small}/{day_long}_model_%_difference', 
                                f'{day_small}/{day_long}_streak_length']+
-                              list(extra_cols - set(extra_cols_to_update))]
+                               list(extra_cols)]
             
-            temp_df.set_index('code', inplace=True)
-            
-            
-            self.model_res_df.update(temp_df)
-            codes_temp_df = pd.Series(list(temp_df.index))
-            codes_temp_df_missing = codes_temp_df[codes_temp_df.isin(list(self.day_df.index))].values
-            if len(list(codes_temp_df_missing))>0:
-                #there is a missing new code that needs to be added.
-                warnings.warn(f'There is codes {list(codes_temp_df_missing)}')
-                ####
-                #Logic to add the code, ? 
-                ###
+        
+        idx = temp_df.groupby('code')['aest_day_datetime'].idxmax()
+        temp_df = temp_df.loc[idx]
+        temp_df.set_index('code', inplace=True)
+        print(f"Duplicated index values temp_df: {pd.Series(temp_df.index)[pd.Series(temp_df.index).duplicated()]}")
+        print(f"Duplicated columns values temp_df: {pd.Series(temp_df.columns)[pd.Series(temp_df.columns).duplicated()]}")
+        print(f"Duplicated index values self.model_res_df: {pd.Series(self.model_res_df.index)[pd.Series(self.model_res_df.index).duplicated()]}")
+        print(f"Duplicated columns values self.model_res_df: {pd.Series(self.model_res_df.columns)[pd.Series(self.model_res_df.columns).duplicated()]}")
+        self.model_res_df[list(temp_df.columns)] = temp_df#update all columns in temporary df
+        #temp_df now contains the latest values for each share only, then can be merged
+        self.day_df.drop(columns = [f'{day_small}/{day_long}_buy_streak',f'{day_small}/{day_long}_model_difference' ], inplace = True)#drop columns to save memory. 
             
     def calc_gradient(self, num_days=[5], columns=[]):
         """
@@ -495,7 +541,22 @@ class shares_analysis:
                 
             
     def calc_rsi(self, window = 14, min_periods = 13):
+        name_RSI = f'RSI_window_{window}_periods_{min_periods}'
+        print("beggining calc_rsi")
+        if name_RSI in list(self.day_df.columns) and self.df_is_updated == False:
+            #if dataframe has not been updated we dont want to do this calculation. 
+            #doing this just in case./ 
+            idx = self.day_df.groupby('code')['aest_day_datetime'].idxmax()
+            temp_df = self.day_df.loc[idx]
         
+            #we now have the latest prices stored in the temp df 
+
+            temp_df = temp_df.set_index("code")
+            self.model_res_df[name_RSI] = temp_df[name_RSI]
+            print(f"not calculating rsi as self.df_is_updated = {self.df_is_updated} and column exists")
+            return
+
+
         def custom_func(rolling_window,calc_type ="avg_gain"):
             
             self.day_df = self.day_df.sort_values(by=['code', 'aest_day_datetime']).reset_index(drop=True)
@@ -543,9 +604,9 @@ class shares_analysis:
         #complete the first step
         #finds the ealiest day when the gain and the loss is not na
         print("doing the rest")
-        temp = self.day_df[(~self.day_df[name_loss].isna())&(~self.day_df[name_loss].isna())]
+        temp = self.day_df[(~self.day_df[name_loss].isna())&(~self.day_df[name_gain].isna())]#first day for each code that is not na.)
         
-        idx = temp.groupby('code')['aest_day_datetime'].idxmin()
+        idx = temp.groupby('code')['aest_day_datetime'].idxmin(skipna = True)
         
         self.day_df['start_day_'+name_RSI] = self.day_df.index.isin(list(idx))
         #we now have each avg_loss and avg_gain
@@ -553,6 +614,7 @@ class shares_analysis:
         self.day_df.loc[self.day_df['start_day_'+name_RSI],name_RSI] = 100 -(100/(
             1+(self.day_df[name_gain]/self.day_df[name_loss])))
         #we now can assume the only entries in RSI is the first entry that 
+        #what happens to codes that have no valid days at all? 
         
         
         temp = self.day_df.groupby('code').shift(periods = 1)
@@ -583,14 +645,10 @@ class shares_analysis:
         temp_df = self.day_df.loc[idx]
         
         #we now have the latest prices stored in the temp df 
+
         temp_df = temp_df.set_index("code")
         self.model_res_df[name_RSI] = temp_df[name_RSI]
-        
-
-    
-        
-        
-        
+        self.day_df.drop(columns = ['gain', 'loss',name_gain,name_loss,'previous_'+name_gain,'previous_'+name_loss,'start_day_'+name_RSI], inplace = True)#remove columns to save memory. 
         
 
     def test_model(self, model):

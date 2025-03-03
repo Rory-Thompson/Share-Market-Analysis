@@ -9,3 +9,4 @@ yfinance
 dash
 plotly
 seaborn
+dash-bootstrap-components

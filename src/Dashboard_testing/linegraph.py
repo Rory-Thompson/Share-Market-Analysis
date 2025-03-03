@@ -39,7 +39,7 @@ def render(app: Dash,Plotter:SharesPlotter) -> html.Div:
     def update_linegraph(codes: list[str]) -> html.Div:
         print(f"codes passed into render in linegraph update_linegraph callback, {codes}")
         #fig = px.bar(filtered_data, x = 'medal', y = "count", color = "nation",text = "nation")
-        img_src = Plotter.plot_averages(codes = codes, averages = [21,30], plot_rsi = True,min_periods =13,window = 14)
+        img_src = Plotter.plot_averages(codes = codes, averages = [9,21], plot_rsi = True,min_periods =13,window = 14)
         return html.Div(html.Img(src=img_src, style=style_image))
     
 

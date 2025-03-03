@@ -34,17 +34,17 @@ class TradingModel:
         "day_long": 21,
         "day_small":9,
         "difference_threshold_max": 5,  # Difference % between high and low
-        "difference_threshold_min": 5,
-        "buy_status": True,
+        "difference_threshold_min": 5, #when the difference threshold falls between this range between the long day and short day it will be True
+        "buy_status": True, #if the shorter average is above the longer average.
         'column':'last',
-        "min_streak": 3,  
+        "min_streak": 3,  #the minimum and maximum number of days It has been buy status
         "max_streak": 7  
     },
     {"type":"gradient_average",
         "columns" = ['last'],
-        "num_days": [9, 20, 3, 4, 5, 6],  
-        "greater_than": 0.5,  
-        "less_than": 2.0  
+        "num_days": [9, 20, 3, 4, 5, 6],  #different rolling averages that will be averaged
+        "greater_than": 0.5,  #gradient average min value
+        "less_than": 2.0  #gradient average max value
     }
 ]
     
@@ -75,8 +75,9 @@ class TradingModel:
             elif model_val['type'] =='gradient_average':
                 self.shares_analysis.calc_gradient_average(num_days=model_val['num_days'],
                                                            columns=[model_val['column']])
-            elif model_val['type'] =='rsi':
-                self.shares_analysis.calc_rsi(self, window = model_val[window], min_periods = model_val[min_periods])
+            elif model_val['type'] =='RSI':
+                
+                self.shares_analysis.calc_rsi(window = model_val["window"], min_periods = model_val["min_periods"])
                 
                 
     def share_test_values_get(self,df_series):
@@ -92,7 +93,7 @@ class TradingModel:
         lst_cur_res = []
         for model_val in self.config:
             
-            print(model_val['type'])
+            
             if model_val['type'] =='moving_average':
                 title = f'{model_val["day_small"]}/{model_val["day_long"]}_'
                 #title_long = f'rolling average {day_long}'
@@ -111,10 +112,22 @@ class TradingModel:
                 (df_series[title+'streak_length'] >= model_val["min_streak"]) & 
                 (df_series[title+'streak_length']<= model_val["max_streak"])
                 )
-                global test7
-                test7=pd.concat([difference_threshold,streak_length], axis=1)
-                res = streak_length & difference_threshold & df_series[title+'model_buy_status']
+                #global test7
+                #test7=pd.concat([difference_threshold,streak_length], axis=1)
                 
+                diff_thresh_min = (abs(df_series[title+'model_%_difference'])>= model_val["difference_threshold_min"]).sum()
+                diff_thresh_max = (abs(df_series[title+'model_%_difference'])<= model_val["difference_threshold_max"]).sum()
+                min_streak = (df_series[title+'streak_length'] >= model_val["min_streak"]).sum()
+                max_streak = (df_series[title+'streak_length'] <= model_val["max_streak"]).sum()
+
+                print(model_val['type'])
+                print(f"diff_thresh_min len {diff_thresh_min}")
+                print(f"diff_thresh_max len {diff_thresh_max}")
+                print(f"min_streak len {min_streak}")
+                print(f"max_streak len {max_streak}")
+
+                res = streak_length & difference_threshold & df_series[title+'model_buy_status']
+                print(f" total for {model_val['type']}: {res.sum()}")
                 lst_cur_res.append(res)
                 
                 
@@ -125,26 +138,36 @@ class TradingModel:
                 title = "_".join(columns) + f"_num_days_{'_'.join(map(str, model_val['num_days']))}_average"
                 
                 res = (
-                (df_series[title] <= model_val['greater_than']) & 
-                (df_series[title] <= model_val['greater_than'])
+                (df_series[title] >= model_val['greater_than']) & 
+                (df_series[title] <= model_val['less_than'])
                 )
-                
+
+                gradient_min = (df_series[title] >= model_val['greater_than']).sum()
+                gradient_max = (df_series[title] <= model_val['less_than']).sum()
+                print(model_val['type'])
+                print(f"gradient_min len {gradient_min}")
+                print(f"gradient_max len {gradient_max}")
+                print(f" total for {model_val['type']}: {res.sum()}")
                 lst_cur_res.append(res)
             elif model_val['type'] =='RSI':
                 #True if it is less than the RSI min value.
                 title = f'RSI_window_{model_val["window"]}_periods_{model_val["min_periods"]}'
 
-                res = df_series[title]<= model_val["rsi_min"]
+                res = df_series[title]<= model_val["rsi_max"]
+
                 lst_cur_res.append(res)
+                RSI_max = (df_series[title]<= model_val["rsi_max"]).sum()
+
+                print(model_val['type'])
+                print(f"RSI_max len {RSI_max}")
+                print(f" total for {model_val['type']}: {res.sum()}")
+        
         print(len(lst_cur_res))
                     
                 
         final_res = pd.concat(lst_cur_res, axis=1)
         print(len(final_res.columns))
-        global test5
-        test5 = final_res
-        global test6
-        test6 = lst_cur_res
+        
         final_res_2 = (final_res.sum(axis=1) == len(final_res.columns))
         self.results = final_res_2    
         return final_res_2#either returns a boolean or a True false value.
@@ -158,7 +181,7 @@ class TradingModel:
         
         if self.shares_analysis.model_res_df:
             pass
-                    
+         
                 
                 
             
