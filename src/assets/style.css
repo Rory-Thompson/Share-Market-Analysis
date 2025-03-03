@@ -58,13 +58,8 @@ body {
     border-radius: 10px;
 }
 
-/* Style data tables */
-.data-table-div {
-    margin: auto;
-    padding: 10px;
-    background-color: #222;
-    border-radius: 10px;
-}
+
+
 /* image styling */
 
 .dash-image {
@@ -100,4 +95,25 @@ body {
     .dropdown-container {
         grid-template-columns: 1fr;
     }
+}
+/* Ensure DataTable uses dark mode */
+.dash-table {
+    width: 100%;          /* Adjust width */
+    position: relative;
+    min-width: 0;
+
+}
+
+.dash-table-container {
+    display: flex;
+    justify-content: flex-start;
+    overflow-x: auto;
+    width: 90%;
+    max-width: 1300px;
+    max-height: 600px;
+    border: 2px solid black;
+    border-radius: 10px;
+    box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.3);
+    height: auto;
+    padding: 10px;
 }
