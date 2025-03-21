@@ -33,6 +33,9 @@ def main():
             "buy_status": True,  
             "min_streak": 2,  
             "max_streak": 10  
+
+
+            
         },
         {"type":"gradient_average",
          'column':'last',

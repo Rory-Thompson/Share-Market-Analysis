@@ -174,9 +174,26 @@ class shares_analysis:
             print(f"init function shares_analysis running, updating file {file}")
             df_temp = self.get_data_to_df(file)
             df_data = pd.concat([df_data,df_temp])
-            
+        ####
+        #HANDLE if missing days on cache update. 
+        ###
         df_data = df_data[list(set(list(df_data.columns)) - set(self.columns_to_drop))]
         #generate another day df .
+
+        full_dates = pd.date_range(start=df_data["aest_time"].min(), end=df_data["aest_time"].max(), freq='B')
+        
+        
+        ##create multi index dataframe
+        full_df = pd.DataFrame(
+            [(date.strftime('%d/%m/%Y'), code) for date in full_dates for code in self.all_codes],
+            columns=['aest_day', 'code']
+        )
+        df_data = pd.merge(full_df, df_data, on = ["aest_day", "code"], how="left")
+
+        ##df data should now include missing days as na (only weekdays)
+
+
+
         df_data["updated_at"]= pd.to_datetime(df_data["updated_at"])
 
         
@@ -586,6 +603,12 @@ class shares_analysis:
         self.day_df['loss'] = self.day_df['change'].where(self.day_df['change'] < 0, 0).abs()
         print("starting calc loss")
         # Use rolling mean to calculate avg_gain and avg_loss
+
+        #issues we may have 
+        self.day_df = self.day_df.sort_values(by=['code', 'time'])#sorting may potentially fix the issue. 
+
+        #also this does not handle if days are missing. 
+
         self.day_df[name_gain] = self.day_df.groupby('code')['gain'].rolling(window=window, min_periods=min_periods).mean().reset_index(level=0, drop=True)
         self.day_df[name_loss] = self.day_df.groupby('code')['loss'].rolling(window=window, min_periods=min_periods).mean().reset_index(level=0, drop=True)
         

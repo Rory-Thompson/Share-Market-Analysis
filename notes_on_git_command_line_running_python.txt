@@ -53,3 +53,26 @@ From the list, choose the Python interpreter from your tf environment.
 
 create python repl
 just type python and anything subsequent will be a repl.
+
+
+CREATING A NEW REPOSITORY
+git init
+git add
+git commit -m "type your message here"
+you will need to create a new repo in github website.
+git remote add origin git@github.com:username/new_repo
+or 
+git remote add origin https://github.com/username/newrepo.git
+
+git remote -v  will display all of the git remotes you have.
+
+git branch displays all the branches
+
+git branch -M main, sets the current branch to main and creates the main branch. 
+
+git push -u origin main pushes to main
+
+if this fails try
+
+git pull -rebase rebase means it takes what you have and combines it with what is on the repository. 
+

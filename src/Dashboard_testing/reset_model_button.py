@@ -3,6 +3,7 @@ import Dashboard_testing.ids as ids
 from datetime import datetime
 import traceback
 import pandas as pd
+import threading
 
 def render(app:Dash, model,Plotter) -> html.Div:
     children = [
@@ -15,7 +16,8 @@ def render(app:Dash, model,Plotter) -> html.Div:
             Output(ids.UPDATECACHERES,'children'),#update text below to indicate shares to buy now
             Output(ids.SHARES_DROPDOWN, "options"),
             Output(ids.SHARES_DROPDOWN, "value",allow_duplicate=True),
-            Output(ids.CURRSHARESTOBUY,'children')
+            Output(ids.CURRSHARESTOBUY,'children'),
+            Output(ids.METRICS_SHARE_DROPDOWN,'options')
 
         ],#update the Options for Share_dropdown for line graph
         [
@@ -36,8 +38,8 @@ def render(app:Dash, model,Plotter) -> html.Div:
             res = model.share_test_values_get(df_series = Plotter.model_res_df)
             print(f"res has been set {len(res)}")
             res = res[res]
-            Plotter.shares_analysis.save_day_df_cache()
-            print(f"cache saved as csv.")
+            threading.Thread(target=Plotter.shares_analysis.save_day_df_cache, daemon=True).start()
+            print("CSV save started in the background")
             shares_lst = list(res.index)
             res_str = f"shares to buy from most recent update time: {datetime.now()}. shares = {shares_lst} updates attempted: {n_clicks}"
             current_content_res = [f"current shares to buy: {', '.join(shares_lst)}"]
@@ -54,7 +56,7 @@ def render(app:Dash, model,Plotter) -> html.Div:
         share_options = list(share_options['value'])
         codes = list(set(share_options)|set(shares_lst))
         options = [{"label": code, "value": code} for code in codes]
-        return res_str, options, shares_lst,current_content_res
+        return res_str, options, shares_lst,current_content_res,options
     
 
     return html.Div(
