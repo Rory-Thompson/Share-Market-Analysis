@@ -8,4 +8,11 @@ UPDATEBUTTON = 'update-button'
 UPDATECACHERES = 'update-cache-res'
 DATATABLE = 'data-table'
 CURRSHARESTOBUY = 'curr-shares-to-buy'
- 
+SHAREDATASTORE_LATEST = "share-data-store-latest"
+SHAREDATASTORE_LATEST_BUY = "share-data-store-latest-buy"
+SHAREDATASTORE_JOBS = "share-data-store-jobs"
+FULLDATATABLE = "full-data-table"
+METRICDATA = "metric-data"
+SHAREDATATABLE = "share-data-table"
+TOGGLEALLSWITCH = "toggle-all-switch"
+SELECTEDSHARE = "selected-share"

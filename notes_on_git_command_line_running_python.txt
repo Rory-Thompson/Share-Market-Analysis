@@ -1,7 +1,9 @@
 Useful notes for development.
 
 Commands used for git. 
+generate ssh key
 
+ssh-keygen -t rsa -b 4096 -C "rory.rbp@gmail.com"
 getting git working using git desktop:
 find git location.
 C:\Users\rory\AppData\Local\GitHubDesktop\app-3.4.16\resources\app\git\cmd
@@ -74,5 +76,58 @@ git push -u origin main pushes to main
 
 if this fails try
 
-git pull -rebase rebase means it takes what you have and combines it with what is on the repository. 
+git pull --rebase rebase means it takes what you have and combines it with what is on the repository. 
+
+you may need to edit the url if you type it wrong:
+git remote set-url origin https://github.com/Rory-Thompson/Share_back_end_module.git
+IF EVER MAKE BAD MISTAKE
+
+
+reset commit = git reset --soft HEAD~1
+git reflog (prints out all last commits and stuff.)
+
+you should see a code or unique id.
+use this  in the below line.
+git reset --hard fa44b11
+
+Remember there will be situations you are behind 1 commit. 
+You have your own changes. I think you should pull with rebase and go through conflicts. 
+or pull with merge. while you have committed changes.
+if you do 
+git pull origin main --rebase while you have committed changes it should point to any conflicts.  
+
+
+SETTING UP A SUBMODULE
+
+If u screw up and create a bad module you may want to redo the whole thing, 
+you need to delete it from the file and everything but also run this to delete it from the .git location.
+rmdir /s /q .git\modules\Share_back_end_module
+
+initiate submodule.
+git submodule update --init --recursive
+git submodule update --remote (updates to most recent commit. )
+dont delete the gitmodules file. 
+git checkout origin/main -- requirements.txt updates most recent pull of a file. 
+git submodule add https://github.com/<username>/<reponame>
+
+
+HOW to change a branch and push it to main. 
+Head means your current position. 
+if you ever find yourself in detached head. It means you cant push any changes to origin main but you can commit them.
+git status # will show you if you are detached.
+git branch # allows you to see what branch you are on. 
+git checkout -b fix-branch #this creates a branch called fix-branch and moves you to it. 
+got checkout lets you change between different commits. 
+git checkout main
+git reset --hard c05a6d6
+This is local. You can then push this commit to main.
+git push origin main --force
+now the remote repository will be updated. 
+where c05 is the code of a commit to a branch.
+so if you want main to be updated to the commit of a fix-branch you do git reset --hard <code)
+git log --oneline --decorate --graph --all  
+too see what is going on with branches and main commits. 
+
+
+
 

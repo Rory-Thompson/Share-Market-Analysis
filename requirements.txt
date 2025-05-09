@@ -10,3 +10,4 @@ dash
 plotly
 seaborn
 dash-bootstrap-components
+dash_daq
