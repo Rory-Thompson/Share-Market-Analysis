@@ -13,17 +13,4 @@ This cannot be replicated on other networks as it uses local file locations in w
 - docker run -d -p 8050:8050 --name share_market_container -v *inser diskstationlocation* -e LOCATION=*inser diskstationlocation*/trading/files share_market_app
 - the above command will run src/main.py on port 8050 of the desired machine. 
 - log into machines local ip: 8050 port. Dashboard will load. 
-
-## Usage:
-The button update cache gets new data and loads it into cache then peforms analysis recomending new shares to purchase
-
-**DO NOT CLICK THIS BUTTON ALOT**
-_this button will take much time to load_
-
-In order to save memory The first line graph only allows 2 shares. It is not much use with more anyway. 
-
-Whenever new shares get loaded into buy, they will remain on the dashboard forever. And can be selected.
-
-Any share that has been reccomended to purchase will remain in the data table and as options for the different graphs.
-
-Appears to require about 600 MB of RAM which is not the best. All data  is loaded into cache at the moment. 
+- in the python run command you must also pass an argument. the api location. if none is passed it will just do "http://localhost:8080"

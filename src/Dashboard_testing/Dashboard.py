@@ -19,8 +19,9 @@ from Dashboard_testing.layout import create_layout
 
 class Dashboard_creator:
 
-    def __init__(self, api_location):
+    def __init__(self, api_location,metric_location):
         #self.SharesPlotter = SharesPlotter
+        self.metric_location = metric_location
         self.api_location = api_location
         self.app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
         self.app.title = "Shares Analyis"
@@ -43,7 +44,7 @@ class Dashboard_creator:
         )
         #make the call parallel with other calls. 
         def fetch_metric_data(url):
-            df_manager = shares_analysis(location_base=os.path.join(os.sep, "DiskStation","Data", "trading","files"),shares_df=pd.DataFrame({"updated_at":[],"code": []}))
+            df_manager = shares_analysis(location_base=self.metric_location,shares_df=pd.DataFrame({"updated_at":[],"code": []}))
             df_manager.get_cache_metric_df()
             return df_manager.share_metric_df.to_dict()
         @self.app.callback(
